@@ -1,3 +1,8 @@
+mv * NODE
+git add .
+git commit -m "Movendo os arquivos para a pasta NODE"
+git push origin main
+
 git add package.json
 git commit -m "Adicionando package.json"
 git push origin main
