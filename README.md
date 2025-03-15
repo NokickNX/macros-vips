@@ -1,1 +1,88 @@
-# macros-vips
+const { Client, GatewayIntentBits } = require('discord.js');
+const axios = require('axios');
+const express = require('express');
+const app = express();
+
+const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers] });
+
+const token = 'SEU_TOKEN_DO_BOT';
+const clientId = 'SEU_CLIENT_ID';
+const clientSecret = 'SEU_CLIENT_SECRET';
+const redirectUri = 'http://localhost:3000/callback';
+const targetGuildId = 'ID_DO_SEGUNDO_SERVIDOR';
+
+const verifiedUsers = new Set();
+
+client.once('ready', () => {
+    console.log(`Bot conectado como ${client.user.tag}`);
+});
+
+// Servidor Express para manipular a autenticação OAuth2
+app.get('/login', (req, res) => {
+    const authUrl = `https://discord.com/api/oauth2/authorize?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=identify%20guilds.join`;
+    res.redirect(authUrl);
+});
+
+app.get('/callback', async (req, res) => {
+    const code = req.query.code;
+
+    if (!code) return res.send('Código de autorização não encontrado.');
+
+    try {
+        const response = await axios.post('https://discord.com/api/oauth2/token', new URLSearchParams({
+            client_id: clientId,
+            client_secret: clientSecret,
+            grant_type: 'authorization_code',
+            code: code,
+            redirect_uri: redirectUri,
+            scope: 'identify guilds.join'
+        }), {
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
+        });
+
+        const { access_token, token_type } = response.data;
+
+        // Obter dados do usuário
+        const userResponse = await axios.get('https://discord.com/api/users/@me', {
+            headers: { Authorization: `${token_type} ${access_token}` }
+        });
+
+        const userId = userResponse.data.id;
+        verifiedUsers.add(userId);
+        res.send('✅ Verificação concluída! Você agora está autorizado.');
+
+    } catch (error) {
+        console.error('Erro durante a verificação:', error.response?.data || error.message);
+        res.send('❌ Falha na verificação.');
+    }
+});
+
+app.listen(3000, () => {
+    console.log('Servidor de autenticação rodando em http://localhost:3000');
+});
+
+// Comando para redirecionar o usuário verificado
+client.on('messageCreate', async message => {
+    if (!message.content.startsWith('!redirecionar')) return;
+
+    const args = message.content.split(' ');
+    const userId = args[1];
+
+    if (!userId) {
+        return message.reply('❌ Você precisa fornecer o ID do usuário.');
+    }
+
+    if (!verifiedUsers.has(userId)) {
+        return message.reply(`❌ Usuário <@${userId}> não está verificado!`);
+    }
+
+    try {
+        const member = await client.guilds.cache.get(targetGuildId).members.add(userId);
+        message.reply(`✅ Usuário <@${userId}> foi adicionado ao servidor com sucesso!`);
+    } catch (error) {
+        console.error(error);
+        message.reply('❌ Ocorreu um erro ao adicionar o usuário ao servidor.');
+    }
+});
+
+client.login(token);
