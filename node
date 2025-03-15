@@ -1,4 +1,4 @@
-mv * NODE
+mv * node
 git add .
 git commit -m "Movendo os arquivos para a pasta NODE"
 git push origin main
