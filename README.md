@@ -1,3 +1,7 @@
+git add package.json
+git commit -m "Adicionando package.json"
+git push origin main
+
 const { Client, GatewayIntentBits } = require('discord.js');
 const axios = require('axios');
 const express = require('express');
